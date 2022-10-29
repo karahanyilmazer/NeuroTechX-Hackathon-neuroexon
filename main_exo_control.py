@@ -1,4 +1,4 @@
-from exoskeleton_control.servo_control import ExoskeletonControl
+from exoskeleton_control.servo_control import ExoskeletonControl, GPIO
 import numpy as np
 import flask
 from flask import Flask,render_template,Response,request
@@ -21,7 +21,7 @@ def move_exoskeleton(ec):
         angle = detections['angle']
     
         if move_command and move_command[0]==True:
-            ec.SetAngle(angle)
+            ec.SetAngle(angle[0])
             sleep(2.5)
             ec.SetAngle(90)
             move_command = False
