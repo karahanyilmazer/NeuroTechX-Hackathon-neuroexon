@@ -6,10 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pyxdf import load_xdf
-from scipy.linalg import eig
+from scipy.ndimage import gaussian_filter1d
 
 import mne
-from mne.time_frequency import psd_welch
+from mne.time_frequency import psd_welch, psd_array_welch
 
 from sklearn.preprocessing import LabelEncoder, Normalizer, StandardScaler
 from sklearn.decomposition import PCA
@@ -28,7 +28,11 @@ ref_wave = lambda f, h, t, p: [sin(f, h, t, p), cos(f, h, t, p)]
 def get_raw(data_stream, ch_keep=[]):
 
     # Define the channel names
-    ch_names = ['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8']
+    ch_names = [
+        'Fp1', 'Fp2', 'Fz', 'F7', 'F8', 'FC1', 'FC2', 'Cz', 'C3', 'C4', 'T7',
+        'T8', 'CPz', 'CP1', 'CP2', 'CP5', 'CP6', 'M1', 'M2', 'Pz', 'P3', 'P4',
+        'O1', 'O2'
+    ]
 
     # Define the sampling frequency
     sfreq = 250  # Hz
@@ -37,10 +41,10 @@ def get_raw(data_stream, ch_keep=[]):
     info = mne.create_info(ch_names, sfreq, 'eeg')
 
     # Add the device name
-    info['description'] = 'Unicorn Hybrid Black'
+    info['description'] = 'Smarting'
 
     # Get the recorded data (n_channels x n_samples)
-    data = data_stream['time_series'][:, :8].T
+    data = data_stream['time_series'].T
 
     # Create the Raw object
     raw = mne.io.RawArray(data, info)
@@ -124,6 +128,7 @@ def load_data(file,
               tmin=-0.5,
               tmax=5,
               ch_keep=[],
+              ch_drop=[],
               events=[]):
 
     # Read the XDF file
@@ -139,6 +144,9 @@ def load_data(file,
     # Get the Raw object
     raw = get_raw(data_stream, ch_keep)
 
+    if ch_drop:
+        raw.drop_channels(ch_drop)
+
     # Apply band-pass filtering
     raw_filt = raw.copy().filter(fmin, fmax)
 
@@ -146,7 +154,7 @@ def load_data(file,
     raw_filt.notch_filter(notch_freqs)
 
     # Apply CAR
-    raw_filt = raw_filt.set_eeg_reference(ref_channels='average')
+    # raw_filt = raw_filt.set_eeg_reference(ref_channels='average')
 
     # Cut the continuous data into epochs
     epochs = get_epochs(raw_filt,
@@ -201,37 +209,22 @@ def plot_psd(freqs,
     plt.show()
 
 
-def get_psd_feats(psd_freqs, psd_dict, channel='Oz', band_width=3):
+def get_psd_feats(X, stim_freqs=(8, 13), channel='O2', band_width=3):
+
+    psd_arr, psd_freqs = psd_array_welch(X, sfreq=250)
 
     # Get the index of the channel of interest
     ch_idx = ch_names.index(channel)
 
-    # Initialize the variable for the total number of trials
-    tot_trials = 0
-    # Iterate over the PSD arrays for different events
-    for val in psd_dict.values():
-        # Add the number of trials to the total number of trials
-        tot_trials += val.shape[0]
-
-    # Calculate the number of features for each event
     n_feat_per_event = band_width * 2 + 1
+    n_feats = n_feat_per_event * 2
 
-    if 'rest' in psd_dict.keys():
-        # Calculate the total number of features
-        n_feats = n_feat_per_event * (len(psd_dict) - 1)
-    else:
-        # Calculate the total number of features
-        n_feats = n_feat_per_event * len(psd_dict)
-
-    # Initialize the features matrix
-    X = np.zeros((tot_trials, n_feats))
-
-    # Initialize a variable to store the number of trials in each iteration
-    tmp = 0
+    X = np.zeros((psd_arr.shape[0], n_feats))
 
     freq_idx = []
+    tmp = 0
 
-    for stim_freq in psd_dict.keys():
+    for stim_freq in stim_freqs:
         if stim_freq != 0:
 
             # Find the index of the frequency that is closest to the stim frequency
@@ -243,105 +236,215 @@ def get_psd_feats(psd_freqs, psd_dict, channel='Oz', band_width=3):
 
             freq_idx.append((freq_lower, freq_upper))
 
-    # Iterate over the stimulation frequencies
-    for psd in psd_dict.values():
+    # Get the PSD for the channel of interest
+    psd_arr = psd_arr[:, ch_idx, :]
 
-        # Get the PSD for the channel of interest
-        psd = psd[:, ch_idx, :]
+    # Get the number of trials for the current event
+    n_trials = psd.shape[0]
 
-        # Get the number of trials for the current event
-        n_trials = psd.shape[0]
+    # Calculate the slicing range for the rows of X
+    trial_lower = tmp
+    trial_upper = tmp + n_trials
 
-        # Calculate the slicing range for the rows of X
-        trial_lower = tmp
-        trial_upper = tmp + n_trials
+    for i, (freq_lower, freq_upper) in enumerate(freq_idx):
+        # Calculate the slicing range for the columns of X
+        feat_lower = n_feat_per_event * i
+        feat_upper = n_feat_per_event * (i + 1)
 
-        for i, (freq_lower, freq_upper) in enumerate(freq_idx):
-            # Calculate the slicing range for the columns of X
-            feat_lower = n_feat_per_event * i
-            feat_upper = n_feat_per_event * (i + 1)
+        # Assign the PSD values of interest in the feature matrix
+        X[trial_lower:trial_upper,
+          feat_lower:feat_upper] = psd_arr[:, freq_lower:freq_upper]
 
-            # Assign the PSD values of interest in the feature matrix
-            X[trial_lower:trial_upper,
-              feat_lower:feat_upper] = psd[:, freq_lower:freq_upper]
-
-        # Increment the variable by the number of trials of the current event
-        tmp += n_trials
+    # Increment the variable by the number of trials of the current event
+    tmp += n_trials
 
     return X
 
 
-def generate_reference_signal_at_time(f, t, max_harmonic, phase):
-    values = []
-    for h in range(1, max_harmonic + 1):
-        values += ref_wave(f, h, t, phase)
-    return values
+def get_csp_feats(X, y):
+    csp = mne.decoding.CSP()
+    X_csp = csp.fit_transform(X, y)
+
+    return X_csp, csp
 
 
-def generate_reference_signal(frequency, sampling_frequency, total_time,
-                              max_harmonic, phase):
-    ref_signal = []
-    num_time_step = int(total_time * sampling_frequency)
-    for step in range(num_time_step):
-        time = step * 1 / sampling_frequency
-        ref_signal_at_t = generate_reference_signal_at_time(
-            frequency, time, max_harmonic, phase)
-        ref_signal.append(ref_signal_at_t)
-    ref_signal = np.array(ref_signal)
-    return ref_signal
+def calc_erds(epochs,
+              channels=None,
+              sigma=2,
+              rest_period=(-1, 0),
+              draw_plot=True,
+              view='channel'):
 
+    # Get the sampling frequency
+    sfreq = epochs.info['sfreq']
 
-def find_maximum_canonical_correlations(X, Y):
-    if X.shape[0] == Y.shape[0]:
-        N = X.shape[0]
+    # Get the channel indices
+    if channels is not None:
+        ch_idx = [epochs.ch_names.index(ch) for ch in channels]
     else:
-        print('time frame is not equal')
-        return None
-    C_xx = 1 / N * (X.T @ X)
-    C_yy = 1 / N * (Y.T @ Y)
-    C_xy = 1 / N * (X.T @ Y)
-    C_yx = 1 / N * (Y.T @ X)
-    C_xx_inv = np.linalg.pinv(C_xx)
-    C_yy_inv = np.linalg.pinv(C_yy)
-    eig_values, eig_vectors = eig(C_yy_inv @ C_yx @ C_xx_inv @ C_xy)
-    sqrt_eig_values = np.sqrt(eig_values)
-    return max(sqrt_eig_values)
+        ch_idx = np.arange(len(epochs.ch_names))
 
+    # Get the event names
+    events = list(epochs.event_id.keys())
 
-def get_cca_feats(epochs):
+    # Initialize the dictionary for storing the ERD/ERS curves
+    erds_dict = {}
 
-    # Find the index of cue presentation
-    post_stimulus_time_index = int(np.abs(tmin) * sfreq)
+    # Get the reference period limits
+    rmin = rest_period[0] * sfreq
+    rmax = rest_period[1] * sfreq
 
-    # Get the total epoch window length
-    if tmin < 0:
-        total_time = np.abs(tmin) + tmax
-    else:
-        total_time = tmax - tmin
+    # If the epoching window start from before the cue was shown
+    if epochs.tmin < 0:
+        # Shift both reference period limits accordingly
+        rmin += -epochs.tmin * sfreq
+        rmax += -epochs.tmin * sfreq
 
-    Y = {}
-    for freq in stim_freqs:
-        signal = generate_reference_signal(frequency=freq,
-                                           sampling_frequency=sfreq,
-                                           total_time=total_time,
-                                           max_harmonic=2,
-                                           phase=0)
-        # signal = signal[post_stimulus_time_index:]
-        Y[f'freq_{freq}'] = signal
+    # Convert the limits to integer for slicing
+    rmin = int(rmin)
+    rmax = int(rmax)
 
-    # Get the total number of trials
-    n_trials = len(epochs)
+    # Iterate over the events
+    for event in events:
 
-    cc_vals = np.zeros((n_trials, len(stim_freqs)))
-    for trial_num, trial in enumerate(epochs.get_data()):
-        for i, ref_signal in enumerate(Y.values()):
-            max_cc = find_maximum_canonical_correlations(trial.T, ref_signal)
-            if max_cc is None:
-                cc_vals[trial_num, i] = None
-            elif max_cc.imag == 0.0:
-                cc_vals[trial_num, i] = max_cc.real
+        # Get the trials data for the relevant channels
+        epochs_arr = epochs[event].copy().get_data()[:, ch_idx, :]
 
-    return cc_vals
+        # Initialize an empty array for the band-powers
+        epochs_bp = np.zeros(epochs_arr.shape)
+
+        # Iterate over the trials
+        for i, trial in enumerate(epochs_arr):
+            # Iterate over the channels
+            for ch in range(len(ch_idx)):
+                # Square the signal to get an estimate of the band-powers
+                epochs_bp[i, ch, :] = trial[ch]**2
+
+        # Average the band-powers over trials
+        A = np.mean(epochs_bp, axis=0)
+
+        # Get the reference period
+        R = np.mean(A[:, rmin:rmax], axis=1).reshape(-1, 1)
+
+        # Compute the ERD/ERS
+        erds = (A - R) / R * 100
+
+        # Smoothen the ERD/ERS curve
+        erds = gaussian_filter1d(erds, sigma=sigma)
+
+        # Append the curves to the corresponding events
+        erds_dict[event] = erds
+
+    if draw_plot:
+        if view not in ['task', 'channel']:
+            raise ValueError(
+                "Please give in a valid view parameter. Valid view parameters are: 'task' and 'channel'."
+            )
+
+        # The values for plotting
+        tmin = epochs.tmin
+        tmax = epochs.tmax
+        flow = float(epochs.info['highpass'])
+        fhigh = float(epochs.info['lowpass'])
+
+        # Get the number of samples in the ERD/ERS curves
+        n_samples = erds.shape[1]
+
+        x = np.linspace(tmin, tmax, n_samples)
+
+        # Initialize the plot
+        fig, axs = plt.subplots(len(erds), 1)
+        axs = axs.ravel()
+
+        if view == 'task':
+            for ax, (event_name, erds_arr) in zip(axs, erds_dict.items()):
+
+                if 'left' in event_name:
+                    event_name = 'Left\nMI'
+                if 'right' in event_name:
+                    event_name = 'Right\nMI'
+
+                if channels is not None:
+                    ax.plot(x, erds_arr.T, lw=2)
+                    ax.legend(channels)
+                    title = f'ERD/ERS Curves\n({flow}-{fhigh} Hz BP)'
+                else:
+                    ax.plot(x, np.mean(erds_arr, axis=0), lw=2, color='navy')
+                    title = f'ERD/ERS Curves Averaged Over Available Channels\n({flow}-{fhigh} Hz BP)'
+
+                if tmin <= 0:
+                    ax.axvline(0, color='gray', lw=2)
+                ax.axhline(0, color='gray', ls='--')
+                ax.set_xticks(np.arange(tmin, tmax + 0.1, 0.5))
+                if ax != axs[-1]:
+                    ax.set_xticklabels([])
+                ax.grid()
+                ax_twin = ax.twinx()
+                ax_twin.set_ylabel(event_name, rotation=0, labelpad=17)
+                ax_twin.set_yticklabels([])
+
+        elif view == 'channel':
+            for i in range(len(events)):
+                if 'left' in events[i]:
+                    events[i] = 'Left MI'
+                if 'right' in events[i]:
+                    events[i] = 'Right MI'
+
+            for i, ax in enumerate(axs):
+
+                for erds_arr in erds_dict.values():
+
+                    if channels is not None:
+                        ax.plot(x, erds_arr[i], lw=2)
+                        title = f'ERD/ERS Curves\n({flow}-{fhigh} Hz BP)'
+                    else:
+                        ax.plot(x,
+                                np.mean(erds_arr, axis=0),
+                                lw=2,
+                                color='navy')
+                        title = f'ERD/ERS Curves Averaged Over Available Channels\n({flow}-{fhigh} Hz BP)'
+
+                ax.legend(events)
+
+                if tmin <= 0:
+                    ax.axvline(0, color='gray', lw=2)
+                ax.axhline(0, color='gray', ls='--')
+                ax.set_xticks(np.arange(tmin, tmax + 0.1, 0.5))
+                if ax != axs[-1]:
+                    ax.set_xticklabels([])
+                ax.grid()
+                ax_twin = ax.twinx()
+                ax_twin.set_ylabel(channels[i], rotation=0, labelpad=10)
+                ax_twin.set_yticklabels([])
+
+        ax = fig.add_subplot(111, frameon=False)
+        # Hide tick and tick label of the big axes
+        ax.tick_params(labelcolor='none',
+                       top=False,
+                       bottom=False,
+                       left=False,
+                       right=False)
+        ax.tick_params(axis='x',
+                       which='both',
+                       top=False,
+                       bottom=False,
+                       left=False,
+                       right=False)
+        ax.tick_params(axis='y',
+                       which='both',
+                       top=False,
+                       bottom=False,
+                       left=False,
+                       right=False)
+        ax.grid(False)
+        ax.set_xlabel('Time Relative to the Cue (in s)')
+        ax.set_ylabel('Relative Band Power (in %)')
+
+        plt.suptitle(title)
+        plt.tight_layout()
+        plt.show()
+
+    return erds_dict
 
 
 def fisher_rank(X, y):
@@ -445,9 +548,13 @@ def plot_conf_mat(cm_train, cm_test, labels=[]):
 # %% VARIABLE DEFINITIONS
 # Define the channels to keep
 # ch_keep = ['O1', 'O2', 'P3', 'P4', 'Pz']
+ch_keep = ['C3', 'Cz', 'C4', 'P3', 'P4', 'Pz', 'O1', 'O2']
+
+# ch_drop = ['PO8']
+ch_drop = []
 
 # Define the stimulation frequencies
-stim_freqs = (9, 12, 15)
+stim_freqs = (0, 8, 13)
 
 # Define the sampling frequency
 sfreq = 250
@@ -464,23 +571,31 @@ tmin, tmax = -0.5, 5
 # Define the events of interest
 # events = ['cue_rest', 'cue_freq_9', 'cue_freq_12', 'cue_freq_15']
 # events = ['cue_freq_9', 'cue_freq_12', 'cue_freq_15']
-events = ['cue_rest', 'cue_left', 'cue_right']
+events = ['cue_rest_freq_0', 'cue_left_freq_8', 'cue_right_freq_13']
 
 # %% LOAD IN THE FIRST DATA
 # Get the file name
-file = r'C:\Users\yilma\OneDrive - TUM\Programming\Python\Neuro\data\sub-P003\ses-S001\eeg\sub-P003_ses-S001_task-mi_ssvep_acq-uhb_run-001_eeg.xdf'
+sub = 3
+ses = 1
+run = 1
+acq = 'sm'
+
+file = os.path.join(
+    '..', 'data', 'MI + SSVEP', 'Smarting', f'sub-P00{sub}', f'ses-S00{ses}',
+    'eeg',
+    f'sub-P00{sub}_ses-S00{ses}_task-mi_ssvep_acq-{acq}_run-00{run}_eeg.xdf')
 
 # Get the continuous and epoched data
-raw, raw_filt, epochs = load_data(
-    file,
-    data_idx=1,
-    fmin=fmin,
-    fmax=fmax,
-    notch_freqs=notch_freqs,
-    tmin=tmin,
-    tmax=tmax,
-    #  ch_keep=ch_keep,
-    events=events)
+raw, raw_filt, epochs = load_data(file,
+                                  data_idx=1,
+                                  fmin=fmin,
+                                  fmax=fmax,
+                                  notch_freqs=notch_freqs,
+                                  tmin=tmin,
+                                  tmax=tmax,
+                                  ch_drop=ch_drop,
+                                  ch_keep=ch_keep,
+                                  events=events)
 
 # %% PLOT THE FIRST DATA
 # Plot the raw data
@@ -490,11 +605,12 @@ raw.plot(scalings='auto')
 raw.compute_psd().plot()
 plt.show()
 
+# %%
 # Plot the filtered data
 raw_filt.plot(scalings='auto')
 
 # Plot the PSD of the filtered data
-raw_filt.compute_psd().plot()
+raw_filt.compute_psd(fmax=50).plot()
 plt.show()
 
 # %%
@@ -508,13 +624,9 @@ sfreq = epochs.info['sfreq']
 epochs
 # %%
 # Get the Epochs object for all events
-# epochs_rest = epochs['cue_rest']
-# epochs_9 = epochs['cue_freq_9']
-# epochs_12 = epochs['cue_freq_12']
-# epochs_15 = epochs['cue_freq_15']
-epochs_rest_0 = epochs['cue_rest']
-epochs_left_8 = epochs['cue_left']
-epochs_right_13 = epochs['cue_right']
+epochs_rest_0 = epochs['cue_rest_freq_0']
+epochs_left_8 = epochs['cue_left_freq_8']
+epochs_right_13 = epochs['cue_right_freq_13']
 
 # %%
 # Plot the PSD separately for all events
@@ -530,43 +642,37 @@ psds_8, _ = psd_welch(epochs_left_8)
 psds_13, _ = psd_welch(epochs_right_13)
 
 # Define a dictionary for plotting purposes
-psd_dict = {0: psds_0, 8: psds_8, 13: psds_13}
+psd_dict = {8: psds_8, 13: psds_13}
 
 # for ch in ch_names:
 # Plot the PSDs for different frequencies
 plot_psd(freqs,
          psd_dict,
-         channel='Oz',
+         channel='O2',
          n_rows=1,
          n_cols=3,
          figsize=(28, 18),
          ymax=1.5)
 
 # %%
-# Get the PSD features matrix
-X_psd = get_psd_feats(freqs, psd_dict, band_width=3)
-
-# Concatenate both feature matrices into one
-# X = np.concatenate((X_psd, X_cca), axis=1)
-X = X_psd
-
-# Define a dictionary for the label encoding
-encoding = {0: 0, 8: 1, 13: 2}
-
-# Initialize a list for the labels
-y = []
-# Iterate over the stimulation frequencies and PSD arrays
-for freq, psd in psd_dict.items():
-    # Append as many values to the list as there are trials
-    y += [encoding[freq]] * len(psd)
-# Convert the list to an array
-y = np.array(y)
+epochs_left_right = mne.concatenate_epochs([epochs_left_8, epochs_right_13])
+X = epochs_left_right.get_data()
+y = epochs_left_right.events[:, 2] - 6
 
 # Split the data into train and test data
-X_train, X_test, y_train, y_test = train_test_split(X,
-                                                    y,
-                                                    test_size=0.2,
-                                                    random_state=1001)
+X_train_raw, X_test_raw, y_train, y_test = train_test_split(X,
+                                                            y,
+                                                            test_size=0.2,
+                                                            random_state=1001)
+
+X_csp_train, csp = get_csp_feats(X_train_raw, y_train)
+X_csp_test = csp.transform(X_test_raw)
+
+X_psd_train = get_psd_feats(X_train_raw, band_width=3, channel='O2')
+X_psd_test = get_psd_feats(X_test_raw, band_width=3, channel='O2')
+
+X_train = np.concatenate((X_csp_train, X_psd_train), axis=1)
+X_test = np.concatenate((X_csp_test, X_psd_test), axis=1)
 
 # Get the total number of features
 n_tot_feats = X_train.shape[1]
@@ -632,7 +738,7 @@ plot_acc_for_n_feats(feat_train_acc, feat_cv_acc, method='pca')
 
 # %%
 # Define the number of PCA components
-n_pca_feats = 13
+n_pca_feats = 8
 
 # Initialize the PCA
 pca = PCA(n_pca_feats)
@@ -678,7 +784,7 @@ print(
 
 # %%
 # Define the number of PCA components
-n_pca_feats = 13
+n_pca_feats = 8
 
 # Initialize the PCA
 pca = PCA(n_pca_feats)
