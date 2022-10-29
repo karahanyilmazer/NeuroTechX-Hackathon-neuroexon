@@ -16,8 +16,6 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.metrics import confusion_matrix as cm
 
 # %%
-
-
 def fisher_rank(X, y):
 
     n_feat = X.shape[1]
