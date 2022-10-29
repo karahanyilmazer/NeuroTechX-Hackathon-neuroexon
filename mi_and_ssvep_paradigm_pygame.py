@@ -13,12 +13,15 @@ Email:
 import numpy as np
 from screeninfo import get_monitors
 import pygame as pg
+from threading import Barrier, Thread
+from math import sin, pi
 from pylsl import local_clock, StreamInfo, StreamOutlet
 
 # %%
 # Define custom colors
 GREY = (103, 103, 110)
 WHITE = (255, 255, 255)
+RED = (255, 0, 0)
 
 monitors = get_monitors()
 
@@ -47,20 +50,34 @@ FIX_ARM_LENGTH = WINDOW_HEIGHT / 4
 FIX_ARM_WIDTH = 12
 
 # Parameters for the arrow shown as cue
-ARROW_LENGTH = 80
-ARROW_WIDTH = 40
-CUE_ARM_WIDTH = 30
-CUE_ARM_LENGTH = FIX_ARM_LENGTH - ARROW_LENGTH
+ARROW_LENGTH = 100
+ARROW_WIDTH = 80
+CUE_ARM_WIDTH = 60
+CUE_ARM_LENGTH = FIX_ARM_LENGTH - ARROW_LENGTH + 1
 
 
 class Paradigm(object):
 
-    def __init__(self, window, durations, cues):
+    def __init__(self,
+                 window,
+                 durations,
+                 cues,
+                 freq_mapping,
+                 bg_color=GREY,
+                 stim_color=WHITE,
+                 cue_color=RED):
+
         self.window = window
         self.durations = durations
         self.cues = cues
+        self.freq_mapping = freq_mapping
+        self.bg_color = bg_color
+        self.stim_color = stim_color
+        self.cue_color = cue_color
         self.tot_trials = None
         self.tot_blocks = None
+        self.thread_running = True
+        self.window_open = True
 
         # Define the marker stream
         info = StreamInfo(name='pygame_markers',
@@ -71,9 +88,12 @@ class Paradigm(object):
                           source_id='pygame_markers')
         self.marker_stream = StreamOutlet(info)
 
+        # Initialize the multithreading setup
+        self.barrier = Barrier(len(self.freq_mapping))
+        self.threads = []
+
         # Surface for the cross to be shown in
         self.fix_surf = pg.Surface((FIX_LENGTH, FIX_LENGTH))
-        self.fix_surf.fill(GREY)
         self.fix_surf_rect = self.fix_surf.get_rect(center=(CENTER_X, CENTER_Y))
 
         # Fixation vertices
@@ -517,7 +537,7 @@ class Paradigm(object):
 
 # %%
 # Define the durations for each part of the paradigm
-mi_durations = {
+paradigm_durations = {
     'trial_begin_1': 1,
     'trial_begin_2': 1,
     'beep': 0.5,
@@ -528,9 +548,13 @@ mi_durations = {
 
 # Define the cues that are going to be shown
 # mi_cues = ['rest', 'left', 'right', 'feet', 'tongue']
-mi_cues = ['rest', 'left', 'right']
+# mi_cues = ['rest', 'left', 'right']
 # mi_cues = ['rest', 'right']
 # mi_cues = ['rest']
+mi_cues = ['right']
+
+# Define the frequency mapping ofs the stimulation boxes
+freq_mapping = {'rest': 0, 'left': 9, 'right': 15}
 
 # Initialize Pygame
 pg.init()
@@ -542,7 +566,7 @@ pg.display.set_caption('Motor Imagery + SSVEP Paradigm')
 window.fill(GREY)
 
 # Initialize the Paradigm object to manage the functions and variables
-paradigm = Paradigm(window, mi_durations, mi_cues)
+paradigm = Paradigm(window, paradigm_durations, mi_cues, freq_mapping)
 
 # Run the experiment
 paradigm.run_exp(tot_trials=30, tot_blocks=2)
