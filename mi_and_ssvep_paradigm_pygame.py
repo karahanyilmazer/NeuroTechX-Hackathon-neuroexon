@@ -476,8 +476,8 @@ class Paradigm(object):
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
-                        [f'cue_{cue}_freq{self.freq_mapping[cue]}-{local_clock()}'])
-                    # print([f'cue_{cue}_freq{self.freq_mapping[cue]}-{local_clock()}'])
+                        [f'cue_{cue}_freq_{self.freq_mapping[cue]}-{local_clock()}'])
+                    # print([f'cue_{cue}_freq_{self.freq_mapping[cue]}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -642,5 +642,5 @@ window.fill(GREY)
 paradigm = Paradigm(window, paradigm_durations, mi_cues, freq_mapping)
 
 # Run the experiment
-paradigm.run_exp(tot_trials=30, tot_blocks=3)
+paradigm.run_exp(tot_trials=30, tot_blocks=4)
 # %%
