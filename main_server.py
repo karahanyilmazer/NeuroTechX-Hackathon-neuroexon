@@ -5,14 +5,13 @@ import numpy as np
 import time
 
 #replace url according to raspberry ip:
-url_detections = 'http://192.168.97.205:5000/detections'
+url_detections = 'http://192.168.163.205:5000/detections'
 font = cv2.FONT_HERSHEY_PLAIN
 
 while True:
-    move = input('set move to true or false\n')
     angle = input('set angle to 0 or 180\n')
-    data = {"move_command": [move],
-            "angle": [angle]
+    data = {"move_command": [True],
+            "angle": [int(angle)]
             }
 
     try:
