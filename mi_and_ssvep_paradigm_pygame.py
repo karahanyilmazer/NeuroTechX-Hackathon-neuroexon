@@ -18,6 +18,12 @@ from math import sin, pi
 from pylsl import local_clock, StreamInfo, StreamOutlet
 
 # %%
+# Define the frame rate
+FRAME_RATE = 60
+
+# Initialize the clock
+CLOCK = pg.time.Clock()
+
 # Define custom colors
 GREY = (103, 103, 110)
 WHITE = (255, 255, 255)
@@ -94,7 +100,8 @@ class Paradigm(object):
 
         # Surface for the cross to be shown in
         self.fix_surf = pg.Surface((FIX_LENGTH, FIX_LENGTH))
-        self.fix_surf_rect = self.fix_surf.get_rect(center=(CENTER_X, CENTER_Y))
+        self.fix_surf_rect = self.fix_surf.get_rect(center=(CENTER_X,
+                                                            CENTER_Y))
 
         # Fixation vertices
         self.fix_left = pg.Rect(0, 0, FIX_ARM_LENGTH, FIX_ARM_WIDTH)
@@ -141,59 +148,6 @@ class Paradigm(object):
                                          0 + ARROW_LENGTH),
                                    (FIX_ARM_LENGTH + ARROW_WIDTH,
                                     0 + ARROW_LENGTH))
-
-    def clear_screen(self):
-        # Reset the fixation surface
-        self.fix_surf.fill(GREY)
-        # Clear the screen
-        self.window.fill(GREY)
-
-        # Update the screen
-        pg.display.flip()
-
-    def show_fix(self):
-        # Draw the fixation cross
-        pg.draw.rect(self.fix_surf, WHITE, self.fix_top)
-        pg.draw.rect(self.fix_surf, WHITE, self.fix_bottom)
-        pg.draw.rect(self.fix_surf, WHITE, self.fix_left)
-        pg.draw.rect(self.fix_surf, WHITE, self.fix_right)
-
-        self.window.blit(self.fix_surf, self.fix_surf_rect)
-
-        # Update the screen
-        pg.display.flip()
-
-    def show_cue(self, cue):
-        if cue == 'left':
-
-            pg.draw.rect(self.fix_surf, GREY, self.fix_left)
-            pg.draw.rect(self.fix_surf, WHITE, self.cue_left)
-            pg.draw.polygon(self.fix_surf, WHITE, self.left_arrow_vertices)
-
-        if cue == 'right':
-
-            pg.draw.rect(self.fix_surf, GREY, self.fix_right)
-            pg.draw.rect(self.fix_surf, WHITE, self.cue_right)
-            pg.draw.polygon(self.fix_surf, WHITE, self.right_arrow_vertices)
-
-        if cue == 'feet':
-
-            pg.draw.rect(self.fix_surf, GREY, self.fix_bottom)
-            pg.draw.rect(self.fix_surf, WHITE, self.cue_bottom)
-            pg.draw.polygon(self.fix_surf, WHITE, self.bottom_arrow_vertices)
-
-        if cue == 'tongue':
-
-            pg.draw.rect(self.fix_surf, GREY, self.fix_top)
-            pg.draw.rect(self.fix_surf, WHITE, self.cue_top)
-            pg.draw.polygon(self.fix_surf, WHITE, self.top_arrow_vertices)
-
-        if cue == 'rest':
-            self.show_fix()
-
-        self.window.blit(self.fix_surf, self.fix_surf_rect)
-
-        pg.display.flip()
 
     def get_beep(self, size_format, f=440, duration=0.5):
         # Reference: https://github.com/psychopy/psychopy/blob/release/psychopy/sound/_base.py
@@ -261,6 +215,107 @@ class Paradigm(object):
 
         return pick_list
 
+    def clear_screen(self):
+        # Reset the fixation surface
+        self.fix_surf.fill(self.bg_color)
+        # Clear the screen
+        self.window.fill(self.bg_color)
+
+        # Update the screen
+        # pg.display.flip()
+
+    def show_fix(self):
+        # Draw the fixation cross
+        pg.draw.rect(self.fix_surf, self.stim_color, self.fix_top)
+        pg.draw.rect(self.fix_surf, self.stim_color, self.fix_bottom)
+        pg.draw.rect(self.fix_surf, self.stim_color, self.fix_left)
+        pg.draw.rect(self.fix_surf, self.stim_color, self.fix_right)
+
+        self.window.blit(self.fix_surf, self.fix_surf_rect)
+
+        # Update the screen
+        # pg.display.flip()
+
+    def show_cue(self, cue, color):
+        if cue == 'left':
+
+            pg.draw.rect(self.fix_surf, self.bg_color, self.fix_left)
+            pg.draw.rect(self.fix_surf, color, self.cue_left)
+            pg.draw.polygon(self.fix_surf, color,
+                            self.left_arrow_vertices)
+
+        if cue == 'right':
+
+            pg.draw.rect(self.fix_surf, self.bg_color, self.fix_right)
+            pg.draw.rect(self.fix_surf, color, self.cue_right)
+            pg.draw.polygon(self.fix_surf, color,
+                            self.right_arrow_vertices)
+
+        if cue == 'feet':
+
+            pg.draw.rect(self.fix_surf, self.bg_color, self.fix_bottom)
+            pg.draw.rect(self.fix_surf, color, self.cue_bottom)
+            pg.draw.polygon(self.fix_surf, color,
+                            self.bottom_arrow_vertices)
+
+        if cue == 'tongue':
+
+            pg.draw.rect(self.fix_surf, self.bg_color, self.fix_top)
+            pg.draw.rect(self.fix_surf, color, self.cue_top)
+            pg.draw.polygon(self.fix_surf, color,
+                            self.top_arrow_vertices)
+
+        if cue == 'rest':
+            self.show_fix()
+
+        self.window.blit(self.fix_surf, self.fix_surf_rect)
+        # pg.display.flip()
+
+    def blinking_box(self, cue, frequency):
+        COUNTER = 0
+        
+        self.barrier.wait()  # Synchronize the start of each thread
+
+        while self.thread_running:  # Execution block
+            if not self.thread_running:
+                break
+
+            CLOCK.tick(FRAME_RATE)
+
+            tmp = sin(2 * pi * frequency * (COUNTER / FRAME_RATE))
+            if tmp > 0:
+                color = self.stim_color
+            else:
+                color = self.bg_color
+
+            if cue == 'tongue':
+                pg.draw.rect(self.fix_surf, color, self.cue_top)
+                pg.draw.polygon(self.fix_surf, color, self.top_arrow_vertices)
+
+            elif cue == 'left':
+                pg.draw.rect(self.fix_surf, color, self.cue_left)
+                pg.draw.polygon(self.fix_surf, color, self.left_arrow_vertices)
+            
+            elif cue == 'right':
+                pg.draw.rect(self.fix_surf, color, self.cue_right)
+                pg.draw.polygon(self.fix_surf, color,
+                                self.right_arrow_vertices)
+            
+            elif cue == 'feet':
+                pg.draw.rect(self.fix_surf, self.stim_color, self.cue_right)
+                pg.draw.polygon(self.fix_surf, self.stim_color,
+                                self.right_arrow_vertices)
+
+            # pg.draw.rect(self.fix_surf, color, rect)
+            self.window.blit(self.fix_surf, self.fix_surf_rect)
+            # pg.display.update()
+
+            COUNTER += 1
+            if COUNTER == FRAME_RATE:
+                COUNTER = 0
+            # # Check the time between each frame (144HZ=7ms; 60HZ=16.67ms)
+            # print(CLOCK.get_time())
+
     def run_exp(self, tot_trials, tot_blocks):
         # Set the class attributes
         self.tot_trials = tot_trials
@@ -281,12 +336,16 @@ class Paradigm(object):
         trial_start_1 = False
         trial_start_2 = False
         show_cue = False
+        show_cue_break = False
         trial_break = False
         block_break = False
 
         window_open = True
         run_exp = False
         exp_end = False
+
+        cue = 'rest'
+        COUNTER = 0
 
         # Create a font for displaying text
         msg_font = pg.font.Font(pg.font.get_default_font(), 50)
@@ -310,7 +369,7 @@ class Paradigm(object):
         # Display the welcome message
         self.window.blit(msg_exp_start, msg_exp_start_rect)
         # Update the screen
-        pg.display.flip()
+        # pg.display.flip()
 
         # Initialize the mixer to play sounds
         pg.mixer.init()
@@ -321,7 +380,7 @@ class Paradigm(object):
             self.get_beep(size_format, f=440, duration=durations['beep']))
 
         while window_open:
-
+            
             # Get all the current events
             for event in pg.event.get():
                 # If the window is closed
@@ -338,11 +397,20 @@ class Paradigm(object):
                         if welcome:
                             # Empty the screen
                             self.clear_screen()
-                            pg.display.flip()
+                            # pg.display.flip()
 
                             # Get a list of cues to be shown
                             cues = self.get_cues()
                             print(f'Block {block_num}: {cues}')
+
+                            # # Initialize the multithreading
+                            # for i, (cue, freq) in enumerate(
+                            #         self.freq_mapping.items()):
+                            #     self.threads.append(
+                            #         Thread(target=self.blinking_box,
+                            #                args=([cue], freq),
+                            #                daemon=True))
+                            #     self.threads[i].start()
 
                             # Get out of the welcoming stage
                             welcome = False
@@ -362,7 +430,7 @@ class Paradigm(object):
                                 # Get a new set of cues
                                 cues = self.get_cues()
                                 print(f'Block {block_num}: {cues}')
-                                
+
                                 # Reset the flags
                                 run_exp = True
                                 exp_end = False
@@ -379,7 +447,7 @@ class Paradigm(object):
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
                         [f'trial_begin_{trial_num}-{local_clock()}'])
-                    # print([f'trial_begin_{trial_num}-{local_clock()}'])
+                    print([f'trial_begin_{trial_num}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -393,11 +461,11 @@ class Paradigm(object):
 
                 elif trial_start_2:
                     # Play the sound
-                    beep.play()
+                    # beep.play()
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample([f'beep-{local_clock()}'])
-                    # print([f'beep-{local_clock()}'])
+                    print([f'beep-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -415,12 +483,12 @@ class Paradigm(object):
                     # Get the current cue
                     cue = cues[trial_num - 1]
                     # Display the cue
-                    self.show_cue(cue)
+                    self.show_cue(cue, color)
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
                         [f'cue_{cue}-{local_clock()}'])
-                    # print([f'cue_{cue}-{local_clock()}'])
+                    print([f'cue_{cue}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -454,16 +522,18 @@ class Paradigm(object):
                     # Set the flag
                     run_exp = False
                     show_cue = False
+                    show_cue_break = True
 
                 # TRIAL BREAK
                 # ==============================================================
                 elif trial_break:
+                    show_cue = False
                     # Clear the screen
                     self.clear_screen()
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample([f'pause-{local_clock()}'])
-                    # print([f'pause-{local_clock()}'])
+                    print([f'pause-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -479,6 +549,7 @@ class Paradigm(object):
                 # BLOCK BREAK
                 # ==============================================================
                 elif block_break:
+                    show_cue = False
 
                     # Prepare the message
                     msg_block_end = msg_font.render(
@@ -491,12 +562,12 @@ class Paradigm(object):
                     # Show the message
                     window.blit(msg_block_end, msg_block_end_rect)
                     # Update the screen
-                    pg.display.flip()
+                    # pg.display.flip()
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
                         [f'block_end_{block_num}-{local_clock()}'])
-                    # print([f'block_end_{block_num}-{local_clock()}'])
+                    print([f'block_end_{block_num}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -515,7 +586,7 @@ class Paradigm(object):
                         # Show the message
                         window.blit(msg_exp_end, msg_exp_end_rect)
                         # Update the screen
-                        pg.display.flip()
+                        # pg.display.flip()
                         # Set the flags
                         exp_end = True
                         run_exp = False
@@ -530,9 +601,27 @@ class Paradigm(object):
             else:
                 if not welcome:
                     if local_clock() - timer_start < wait_time:
-                        pass
+                        if show_cue_break:
+                            self.show_cue(cue, color)
                     else:
                         run_exp = True
+                        show_cue_break = False
+
+            tmp = sin(2 * pi * self.freq_mapping[cue] * (COUNTER / FRAME_RATE))
+
+            if tmp > 0:
+                color = self.stim_color
+            else:
+                color = self.bg_color
+
+            COUNTER += 1
+            if COUNTER == FRAME_RATE:
+                COUNTER = 0
+
+            CLOCK.tick(FRAME_RATE)
+            pg.display.flip()
+
+
 
 
 # %%
@@ -551,17 +640,18 @@ paradigm_durations = {
 # mi_cues = ['rest', 'left', 'right']
 # mi_cues = ['rest', 'right']
 # mi_cues = ['rest']
-mi_cues = ['right']
+# mi_cues = ['right']
+mi_cues = ['left', 'right']
 
 # Define the frequency mapping ofs the stimulation boxes
-freq_mapping = {'rest': 0, 'left': 9, 'right': 15}
+freq_mapping = {'rest': 0, 'left': 8, 'right': 13}
 
 # Initialize Pygame
 pg.init()
 
 # Create a Pygame window
 window = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    
+
 pg.display.set_caption('Motor Imagery + SSVEP Paradigm')
 window.fill(GREY)
 
