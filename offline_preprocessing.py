@@ -4,7 +4,6 @@ import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from pyxdf import load_xdf
 from scipy.ndimage import gaussian_filter1d
 
@@ -573,6 +572,13 @@ X_test = np.concatenate((X_csp_test, X_psd_test), axis=1)
 
 # %%
 # Define the name of the pickle file
+file = os.path.join('pickles', 'raw_data.pkl')
+# Open a file to dump the data
+with open(file, 'wb') as pkl_file:
+    # Dump the list to the pickle file
+    pickle.dump(raw_filt.get_data(), pkl_file)
+
+# Define the name of the pickle file
 file = os.path.join('pickles', 'Xy_train.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
@@ -587,9 +593,9 @@ with open(file, 'wb') as pkl_file:
     pickle.dump((X_test, y_test), pkl_file)
 
 # Define the name of the pickle file
-file = os.path.join('pickles', 'raw_data.pkl')
+file = os.path.join('pickles', 'csp.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
     # Dump the list to the pickle file
-    pickle.dump(raw_filt.get_data(), pkl_file)
+    pickle.dump(csp, pkl_file)
 # %%
