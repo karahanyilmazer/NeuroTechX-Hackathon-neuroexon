@@ -13,7 +13,6 @@ Email:
 import numpy as np
 from screeninfo import get_monitors
 import pygame as pg
-from threading import Barrier, Thread
 from math import sin, pi
 from pylsl import local_clock, StreamInfo, StreamOutlet
 
@@ -93,10 +92,6 @@ class Paradigm(object):
                           channel_format='string',
                           source_id='pygame_markers')
         self.marker_stream = StreamOutlet(info)
-
-        # Initialize the multithreading setup
-        self.barrier = Barrier(len(self.freq_mapping))
-        self.threads = []
 
         # Surface for the cross to be shown in
         self.fix_surf = pg.Surface((FIX_LENGTH, FIX_LENGTH))
@@ -374,8 +369,6 @@ class Paradigm(object):
 
         # Display the welcome message
         self.window.blit(msg_exp_start, msg_exp_start_rect)
-        # Update the screen
-        # pg.display.flip()
 
         # Initialize the mixer to play sounds
         pg.mixer.init()
@@ -403,20 +396,10 @@ class Paradigm(object):
                         if welcome:
                             # Empty the screen
                             self.clear_screen()
-                            # pg.display.flip()
 
                             # Get a list of cues to be shown
                             cues = self.get_cues()
                             print(f'Block {block_num}: {cues}')
-
-                            # # Initialize the multithreading
-                            # for i, (cue, freq) in enumerate(
-                            #         self.freq_mapping.items()):
-                            #     self.threads.append(
-                            #         Thread(target=self.blinking_box,
-                            #                args=([cue], freq),
-                            #                daemon=True))
-                            #     self.threads[i].start()
 
                             # Get out of the welcoming stage
                             welcome = False
@@ -453,7 +436,7 @@ class Paradigm(object):
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
                         [f'trial_begin_{trial_num}-{local_clock()}'])
-                    print([f'trial_begin_{trial_num}-{local_clock()}'])
+                    # print([f'trial_begin_{trial_num}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -467,11 +450,11 @@ class Paradigm(object):
 
                 elif trial_start_2:
                     # Play the sound
-                    # beep.play()
+                    beep.play()
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample([f'beep-{local_clock()}'])
-                    print([f'beep-{local_clock()}'])
+                    # print([f'beep-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -493,8 +476,8 @@ class Paradigm(object):
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
-                        [f'cue_{cue}-{local_clock()}'])
-                    print([f'cue_{cue}-{local_clock()}'])
+                        [f'cue_{cue}_freq{self.freq_mapping[cue]}-{local_clock()}'])
+                    # print([f'cue_{cue}_freq{self.freq_mapping[cue]}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -539,7 +522,7 @@ class Paradigm(object):
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample([f'pause-{local_clock()}'])
-                    print([f'pause-{local_clock()}'])
+                    # print([f'pause-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -567,13 +550,11 @@ class Paradigm(object):
                     self.clear_screen()
                     # Show the message
                     window.blit(msg_block_end, msg_block_end_rect)
-                    # Update the screen
-                    # pg.display.flip()
 
                     # Push the marker to the LSL stream
                     self.marker_stream.push_sample(
                         [f'block_end_{block_num}-{local_clock()}'])
-                    print([f'block_end_{block_num}-{local_clock()}'])
+                    # print([f'block_end_{block_num}-{local_clock()}'])
 
                     # Start the timer
                     timer_start = local_clock()
@@ -591,8 +572,6 @@ class Paradigm(object):
                         self.clear_screen()
                         # Show the message
                         window.blit(msg_exp_end, msg_exp_end_rect)
-                        # Update the screen
-                        # pg.display.flip()
                         # Set the flags
                         exp_end = True
                         run_exp = False
@@ -641,11 +620,11 @@ paradigm_durations = {
 
 # Define the cues that are going to be shown
 # mi_cues = ['rest', 'left', 'right', 'feet', 'tongue']
-# mi_cues = ['rest', 'left', 'right']
+mi_cues = ['rest', 'left', 'right']
 # mi_cues = ['rest', 'right']
 # mi_cues = ['rest']
 # mi_cues = ['right']
-mi_cues = ['left', 'right']
+# mi_cues = ['left', 'right']
 
 # Define the frequency mapping ofs the stimulation boxes
 freq_mapping = {'rest': 0, 'left': 8, 'right': 13}
@@ -663,5 +642,5 @@ window.fill(GREY)
 paradigm = Paradigm(window, paradigm_durations, mi_cues, freq_mapping)
 
 # Run the experiment
-paradigm.run_exp(tot_trials=30, tot_blocks=2)
+paradigm.run_exp(tot_trials=30, tot_blocks=3)
 # %%
