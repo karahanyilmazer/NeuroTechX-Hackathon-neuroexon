@@ -6,10 +6,11 @@ import time
 import threading
 import os
 import json
+from time import sleep
 app = Flask(__name__)
 def move_exoskeleton(ec):
     while True:
-        with open('/data.json','r') as f:
+        with open('./data.json','r') as f:
             try:
                 detections = json.load(f)
             except:
@@ -23,8 +24,12 @@ def move_exoskeleton(ec):
         if move_command and move_command[0]==True:
             ec.SetAngle(angle[0])
             sleep(2.5)
-            ec.SetAngle(90)
-            move_command = False
+            request_data = {"move_command": [],
+                              "angle": []
+                              }
+            #ec.SetAngle(90)
+            with open('./data.json','w') as f:
+                json.dump(request_data,f)
 
     ec.pwm.stop()
     GPIO.cleanup()
