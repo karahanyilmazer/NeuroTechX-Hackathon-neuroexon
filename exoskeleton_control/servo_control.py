@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 from time import sleep
-class ServoControl():
+
+class ExoskeletonControl():
     def __init__(self):
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(11,GPIO.OUT)
@@ -21,14 +22,4 @@ class ServoControl():
         GPIO.output(13, True)
         sleep(0.5)
         GPIO.output(13, False)
-        
 
-sc = ServoControl()
-angles = [90,0,90,180]
-for angle in angles:
-    sc.SetAngle(angle)
-    sleep(1.5)
-    
-sc.pwm.stop()
-    
-GPIO.cleanup()
