@@ -104,21 +104,30 @@ class Paradigm(object):
                                                             CENTER_Y))
 
         # Fixation vertices
-        self.fix_left = pg.Rect(0, 0, FIX_ARM_LENGTH, FIX_ARM_WIDTH)
-        self.fix_left.midright = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.fix_left = pg.Rect(0, 0, FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2,
+                                FIX_ARM_WIDTH)
+        self.fix_left.midright = (FIX_ARM_LENGTH - FIX_ARM_WIDTH / 2,
+                                  FIX_ARM_LENGTH)
 
-        self.fix_right = pg.Rect(0, 0, FIX_ARM_LENGTH, FIX_ARM_WIDTH)
-        self.fix_right.midleft = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.fix_right = pg.Rect(0, 0, FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2,
+                                 FIX_ARM_WIDTH)
+        self.fix_right.midleft = (FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2,
+                                  FIX_ARM_LENGTH)
 
-        self.fix_top = pg.Rect(0, 0, FIX_ARM_WIDTH, FIX_ARM_LENGTH)
-        self.fix_top.midbottom = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.fix_top = pg.Rect(0, 0, FIX_ARM_WIDTH,
+                               FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2)
+        self.fix_top.midbottom = (FIX_ARM_LENGTH,
+                                  FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2)
 
-        self.fix_bottom = pg.Rect(0, 0, FIX_ARM_WIDTH, FIX_ARM_LENGTH)
-        self.fix_bottom.midtop = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.fix_bottom = pg.Rect(0, 0, FIX_ARM_WIDTH,
+                                  FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2)
+        self.fix_bottom.midtop = (FIX_ARM_LENGTH,
+                                  FIX_ARM_LENGTH - FIX_ARM_WIDTH / 2)
 
         # Cue vertices
         self.cue_left = pg.Rect(0, 0, CUE_ARM_LENGTH, CUE_ARM_WIDTH)
-        self.cue_left.midright = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.cue_left.midright = (FIX_ARM_LENGTH - FIX_ARM_WIDTH / 2,
+                                  FIX_ARM_LENGTH)
         self.left_arrow_vertices = ((0, FIX_ARM_LENGTH),
                                     (ARROW_LENGTH,
                                      FIX_ARM_LENGTH - ARROW_WIDTH),
@@ -126,7 +135,8 @@ class Paradigm(object):
                                      FIX_ARM_LENGTH + ARROW_WIDTH))
 
         self.cue_right = pg.Rect(0, 0, CUE_ARM_LENGTH, CUE_ARM_WIDTH)
-        self.cue_right.midleft = (FIX_ARM_LENGTH, FIX_ARM_LENGTH)
+        self.cue_right.midleft = (FIX_ARM_LENGTH + FIX_ARM_WIDTH / 2,
+                                  FIX_ARM_LENGTH)
         self.right_arrow_vertices = ((FIX_LENGTH, FIX_ARM_LENGTH),
                                      (FIX_LENGTH - ARROW_LENGTH,
                                       FIX_ARM_LENGTH - ARROW_WIDTH),
@@ -241,29 +251,25 @@ class Paradigm(object):
 
             pg.draw.rect(self.fix_surf, self.bg_color, self.fix_left)
             pg.draw.rect(self.fix_surf, color, self.cue_left)
-            pg.draw.polygon(self.fix_surf, color,
-                            self.left_arrow_vertices)
+            pg.draw.polygon(self.fix_surf, color, self.left_arrow_vertices)
 
         if cue == 'right':
 
             pg.draw.rect(self.fix_surf, self.bg_color, self.fix_right)
             pg.draw.rect(self.fix_surf, color, self.cue_right)
-            pg.draw.polygon(self.fix_surf, color,
-                            self.right_arrow_vertices)
+            pg.draw.polygon(self.fix_surf, color, self.right_arrow_vertices)
 
         if cue == 'feet':
 
             pg.draw.rect(self.fix_surf, self.bg_color, self.fix_bottom)
             pg.draw.rect(self.fix_surf, color, self.cue_bottom)
-            pg.draw.polygon(self.fix_surf, color,
-                            self.bottom_arrow_vertices)
+            pg.draw.polygon(self.fix_surf, color, self.bottom_arrow_vertices)
 
         if cue == 'tongue':
 
             pg.draw.rect(self.fix_surf, self.bg_color, self.fix_top)
             pg.draw.rect(self.fix_surf, color, self.cue_top)
-            pg.draw.polygon(self.fix_surf, color,
-                            self.top_arrow_vertices)
+            pg.draw.polygon(self.fix_surf, color, self.top_arrow_vertices)
 
         if cue == 'rest':
             self.show_fix()
@@ -273,7 +279,7 @@ class Paradigm(object):
 
     def blinking_box(self, cue, frequency):
         COUNTER = 0
-        
+
         self.barrier.wait()  # Synchronize the start of each thread
 
         while self.thread_running:  # Execution block
@@ -295,12 +301,12 @@ class Paradigm(object):
             elif cue == 'left':
                 pg.draw.rect(self.fix_surf, color, self.cue_left)
                 pg.draw.polygon(self.fix_surf, color, self.left_arrow_vertices)
-            
+
             elif cue == 'right':
                 pg.draw.rect(self.fix_surf, color, self.cue_right)
                 pg.draw.polygon(self.fix_surf, color,
                                 self.right_arrow_vertices)
-            
+
             elif cue == 'feet':
                 pg.draw.rect(self.fix_surf, self.stim_color, self.cue_right)
                 pg.draw.polygon(self.fix_surf, self.stim_color,
@@ -380,7 +386,7 @@ class Paradigm(object):
             self.get_beep(size_format, f=440, duration=durations['beep']))
 
         while window_open:
-            
+
             # Get all the current events
             for event in pg.event.get():
                 # If the window is closed
@@ -620,8 +626,6 @@ class Paradigm(object):
 
             CLOCK.tick(FRAME_RATE)
             pg.display.flip()
-
-
 
 
 # %%
