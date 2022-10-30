@@ -1,12 +1,7 @@
-import json
 import requests
-import cv2
-import numpy as np
-import time
 
 #replace url according to raspberry ip:
 url_detections = 'http://192.168.163.205:5000/detections'
-font = cv2.FONT_HERSHEY_PLAIN
 
 while True:
     angle = input('set angle to 0 or 180\n')
