@@ -3,9 +3,10 @@
 import os
 import pickle
 import numpy as np
-
+from time import sleep
 from tqdm import tqdm
-
+import requests
+import numpy as np
 import mne
 from mne.time_frequency import psd_array_welch
 
@@ -64,21 +65,21 @@ def get_psd_feats(X, stim_freqs=(8, 13), channel='O2', band_width=3):
 
 
 # %%
-file = os.path.join('pickles', 'raw_data.pkl')
+file = os.path.join('..', 'pickles', 'raw_data.pkl')
 with open(file, 'rb') as pkl_file:
     raw_data = pickle.load(pkl_file)
 
-file = os.path.join('pickles', 'csp.pkl')
+file = os.path.join('..', 'pickles', 'csp.pkl')
 with open(file, 'rb') as pkl_file:
     csp = pickle.load(pkl_file)
 
-file = os.path.join('pickles', 'clf_pca.pkl')
+file = os.path.join('..', 'pickles', 'clf_pca.pkl')
 with open(file, 'rb') as pkl_file:
     pipe = pickle.load(pkl_file)
 
 # %%
 mne.set_log_level('WARNING')
-
+url_detections = 'http://192.168.163.205:5000/detections'
 # Define the channel names
 ch_names = ['Cz', 'C3', 'C4', 'Pz', 'P3', 'P4', 'O1', 'O2']
 
@@ -101,4 +102,27 @@ for i in tqdm(range(0, n_samples, STEP_SIZE)):
     X = np.concatenate((X_csp, X_psd), axis=1)
 
     predictions.append(pipe.predict(X)[0])
+# %%
+for pred in predictions:
+    angle = 0 if pred == -1 else 170 
+    data = {"move_command": [True],
+            "angle": [int(angle)]
+            }
+    try:
+        server_return = requests.post(url_detections,json=data)
+        print('[INFO]: Detections posted.')
+    except:
+        print('not able to connect')
+        pass
+    sleep(3)
+    data = {"move_command": [True],
+            "angle": [int(90)]
+            }
+    try:
+        server_return = requests.post(url_detections,json=data)
+        print('[INFO]: Detections posted.')
+    except:
+        print('not able to connect')
+        pass
+    sleep(3)
 # %%
