@@ -33,7 +33,7 @@ def fisher_rank(X, y):
     return scores, ranks
 
 
-def plot_acc_for_n_feats(train_acc, cv_acc, method='fisher'):
+def plot_acc_for_n_feats(train_acc, cv_acc, method='fisher', plot_title=''):
     train_mean = [np.mean(acc) * 100 for acc in train_acc]
     train_std = [np.std(acc) * 100 for acc in train_acc]
     train_lower = [mean - std for mean, std in zip(train_mean, train_std)]
@@ -53,11 +53,16 @@ def plot_acc_for_n_feats(train_acc, cv_acc, method='fisher'):
         title = 'PCA'
         xlabel = 'Number of Components'
 
+    if plot_title:
+        title = plot_title
+
     plt.figure()
     plt.plot(x, train_mean, label='Training ACC')
-    plt.fill_between(x, train_lower, train_upper, alpha=0.1, color='blue')
+    # plt.fill_between(x, train_lower, train_upper, alpha=0.1, color='blue')
+    plt.fill_between(x, train_lower, train_upper, alpha=0.1, color='#ef4b56')
     plt.plot(x, cv_mean, label='CV ACC')
-    plt.fill_between(x, cv_lower, cv_upper, alpha=0.1, color='orange')
+    # plt.fill_between(x, cv_lower, cv_upper, alpha=0.1, color='orange')
+    plt.fill_between(x, cv_lower, cv_upper, alpha=0.1, color='#7e7ff3')
 
     plt.title(title)
     plt.xlabel(xlabel)
@@ -112,11 +117,11 @@ def plot_conf_mat(cm_train, cm_test, labels=[]):
 
 
 # %%
-file = os.path.join('pickles', 'Xy_train.pkl')
+file = os.path.join('..', 'pickles', 'Xy_train.pkl')
 with open(file, 'rb') as pkl_file:
     X_train, y_train = pickle.load(pkl_file)
 
-file = os.path.join('pickles', 'Xy_test.pkl')
+file = os.path.join('..', 'pickles', 'Xy_test.pkl')
 with open(file, 'rb') as pkl_file:
     X_test, y_test = pickle.load(pkl_file)
 
@@ -178,12 +183,12 @@ for n_pca_feats in range(1, n_tot_feats + 1):
     feat_train_acc.append(train_acc)
     feat_cv_acc.append(cv_acc)
 
-plot_acc_for_n_feats(feat_train_acc, feat_cv_acc, method='pca')
-# RESULT: Use 13 features
+plot_acc_for_n_feats(feat_train_acc, feat_cv_acc, method='pca', plot_title='Right vs. Rest Classification Accuracy')
+# RESULT: Use 8 features
 
 # %%
 # Define the number of PCA components
-n_pca_feats = 8
+n_pca_feats = 12
 
 # Initialize the PCA
 pca = PCA(n_pca_feats)
@@ -229,7 +234,7 @@ print(
 
 # %%
 # Define the number of PCA components
-n_pca_feats = 8
+n_pca_feats = 12
 
 # Initialize the PCA
 pca = PCA(n_pca_feats)

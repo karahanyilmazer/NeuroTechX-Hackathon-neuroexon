@@ -170,14 +170,15 @@ def plot_psd(freqs,
              n_rows=2,
              n_cols=2,
              figsize=(20, 16),
-             ymax=0.38):
+             ymax=0.38,
+             titles=[]):
 
     ch_idx = ch_names.index(channel)
 
     fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
     axs = axs.ravel()
 
-    for (freq, psd), ax in zip(psd_dict.items(), axs):
+    for i, ((freq, psd), ax) in enumerate(zip(psd_dict.items(), axs)):
         psd = psd[:, ch_idx, :].T
 
         psd_mean = np.mean(psd, axis=1)
@@ -192,8 +193,13 @@ def plot_psd(freqs,
         ax.grid()
 
         ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('PSD')
-        ax.set_title(f'Stimulation Frequency: {freq} Hz')
+        if i % n_cols == 0:
+            ax.set_ylabel('PSD')
+
+        if titles:
+            ax.set_title(titles[i])
+        else:
+            ax.set_title(f'Stimulation Frequency: {freq} Hz')
 
         ax.set_xlim(0, fmax + 10)
         ax.set_ylim(0, ymax)
@@ -477,7 +483,7 @@ run = 1
 acq = 'sm'
 
 file = os.path.join(
-    '..', 'data', 'MI + SSVEP', 'Smarting', f'sub-P00{sub}', f'ses-S00{ses}',
+    '..', '..', 'data', 'MI + SSVEP', 'Smarting', f'sub-P00{sub}', f'ses-S00{ses}',
     'eeg',
     f'sub-P00{sub}_ses-S00{ses}_task-mi_ssvep_acq-{acq}_run-00{run}_eeg.xdf')
 
@@ -548,12 +554,13 @@ plot_psd(freqs,
          n_rows=1,
          n_cols=3,
          figsize=(28, 18),
-         ymax=7)
+         ymax=6.5,
+         titles=['Rest', 'Stimulation Frequency: 8 Hz', 'Stimulation Frequency: 13 Hz'])
 
 # %%
-epochs_left_right = mne.concatenate_epochs([epochs_left_8, epochs_right_13])
-X = epochs_left_right.get_data()
-y = epochs_left_right.events[:, 2] - 6
+epochs_combined = mne.concatenate_epochs([epochs_left_8, epochs_right_13])
+X = epochs_combined.get_data()
+y = epochs_combined.events[:, 2] - 6
 
 # Split the data into train and test data
 X_train_raw, X_test_raw, y_train, y_test = train_test_split(X,
@@ -572,28 +579,28 @@ X_test = np.concatenate((X_csp_test, X_psd_test), axis=1)
 
 # %%
 # Define the name of the pickle file
-file = os.path.join('pickles', 'raw_data.pkl')
+file = os.path.join('..', 'pickles', 'raw_data.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
     # Dump the list to the pickle file
     pickle.dump(raw_filt.get_data(), pkl_file)
 
 # Define the name of the pickle file
-file = os.path.join('pickles', 'Xy_train.pkl')
+file = os.path.join('..', 'pickles', 'Xy_train.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
     # Dump the list to the pickle file
     pickle.dump((X_train, y_train), pkl_file)
 
 # Define the name of the pickle file
-file = os.path.join('pickles', 'Xy_test.pkl')
+file = os.path.join('..', 'pickles', 'Xy_test.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
     # Dump the list to the pickle file
     pickle.dump((X_test, y_test), pkl_file)
 
 # Define the name of the pickle file
-file = os.path.join('pickles', 'csp.pkl')
+file = os.path.join('..', 'pickles', 'csp.pkl')
 # Open a file to dump the data
 with open(file, 'wb') as pkl_file:
     # Dump the list to the pickle file
