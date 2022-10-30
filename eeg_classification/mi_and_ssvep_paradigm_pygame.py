@@ -1,6 +1,6 @@
 # %%
 """
-Motor imagery paradigm based on a combination of the Graz paradigm and the
+SSVEP + motor imagery paradigm based on a combination of the Graz paradigm and the
 Berlin paradigm implemented in Pygame. 
 
 Author:
